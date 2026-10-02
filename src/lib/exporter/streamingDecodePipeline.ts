@@ -3,6 +3,7 @@ import type { SpeedRegion, TrimRegion } from "@/components/video-editor/types";
 import { getEffectiveVideoStreamDurationSeconds } from "@/lib/mediaTiming";
 import {
 	buildVideoDecodeFailure,
+	buildVideoDecodeRecoveryFailure,
 	type DecodedVideoInfo,
 	getDecodedFrameTimelineOffsetUs,
 	preserveFirstVideoDecodeFailure,
@@ -79,18 +80,25 @@ export async function decodeVideoStream(
 		// Replay from a keyframe to rebuild decoder state. Output already handed to
 		// the renderer/encoder must not be submitted again.
 		let replayedFrames = 0;
-		await decodeVideoStreamAttempt(
-			context,
-			targetFrameRate,
-			trimRegions,
-			speedRegions,
-			async (...args) => {
-				if (replayedFrames++ < emittedFrames) return;
-				await onFrame(...args);
-			},
-			segmentsOverride,
-			true,
-		);
+		try {
+			await decodeVideoStreamAttempt(
+				context,
+				targetFrameRate,
+				trimRegions,
+				speedRegions,
+				async (...args) => {
+					if (replayedFrames++ < emittedFrames) return;
+					await onFrame(...args);
+				},
+				segmentsOverride,
+				true,
+			);
+		} catch (softwareError) {
+			const softwareMessage =
+				softwareError instanceof Error ? softwareError.message : String(softwareError);
+			if (!/^\[VIDEO_(?:DECODE|DECODER|CODEC)_/.test(softwareMessage)) throw softwareError;
+			throw buildVideoDecodeRecoveryFailure(error, softwareError);
+		}
 	}
 }
 

@@ -199,9 +199,16 @@ describe("StreamingVideoDecoder decode failures", () => {
 		await decoder.loadMetadata("/tmp/failing.mp4");
 		const onFrame = vi.fn(async () => {});
 
-		await expect(decoder.decodeAll(30, undefined, undefined, onFrame)).rejects.toThrow(
-			"[VIDEO_DECODE_ENCODING_ERROR]",
+		const failure = await decoder
+			.decodeAll(30, undefined, undefined, onFrame)
+			.catch((error) => error);
+		expect(failure).toBeInstanceOf(Error);
+		expect(failure.message).toContain("[VIDEO_DECODE_RECOVERY_FAILED]");
+		expect(failure.message).toContain("Initial decoder failure: [VIDEO_DECODE_ENCODING_ERROR]");
+		expect(failure.message).toContain(
+			"Software decoder failure: [VIDEO_DECODE_ENCODING_ERROR]",
 		);
+		expect(failure.message).toContain("hardwareAcceleration=prefer-software");
 		expect(onFrame).not.toHaveBeenCalled();
 		expect(frames).toHaveLength(2);
 		expect(mockDemuxerRead).toHaveBeenCalledTimes(2);
