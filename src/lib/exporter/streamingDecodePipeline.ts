@@ -497,8 +497,11 @@ async function decodeVideoStreamAttempt(
 		requiredEndSec - lastDecodedFrameSec > 1 &&
 		exportFrameIndex < expectedOutputFrames
 	) {
-		throw new Error(
-			`Video decode ended early at ${lastDecodedFrameSec.toFixed(3)}s (needed ${requiredEndSec.toFixed(3)}s; rendered ${exportFrameIndex}/${expectedOutputFrames} frames).`,
+		throw buildVideoDecodeFailure(
+			new Error(
+				`Video decode ended early at ${lastDecodedFrameSec.toFixed(3)}s (needed ${requiredEndSec.toFixed(3)}s; rendered ${exportFrameIndex}/${expectedOutputFrames} frames).`,
+			),
+			getDecoderFailureContext(),
 		);
 	}
 }

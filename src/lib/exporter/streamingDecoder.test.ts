@@ -215,6 +215,57 @@ describe("StreamingVideoDecoder decode failures", () => {
 		for (const frame of frames) expect(frame.close).toHaveBeenCalledTimes(1);
 	});
 
+	it("preserves both failures when the software retry ends before a later kept segment", async () => {
+		const configs: VideoDecoderConfig[] = [];
+		const closeFrame = vi.fn();
+		class EarlyEndDecoder {
+			state: CodecState = "unconfigured";
+			decodeQueueSize = 0;
+			software = false;
+			constructor(
+				private callbacks: {
+					output: (frame: VideoFrame) => void;
+					error: (error: DOMException) => void;
+				},
+			) {}
+			configure(config: VideoDecoderConfig) {
+				configs.push(config);
+				this.software = config.hardwareAcceleration === "prefer-software";
+				this.state = "configured";
+			}
+			decode(chunk: EncodedVideoChunk) {
+				if (!this.software) {
+					this.callbacks.error(new DOMException("original bad frame", "EncodingError"));
+					return;
+				}
+				this.callbacks.output({
+					timestamp: chunk.timestamp,
+					close: closeFrame,
+				} as unknown as VideoFrame);
+			}
+			async flush() {}
+			close() {
+				this.state = "closed";
+			}
+		}
+		vi.stubGlobal("VideoDecoder", EarlyEndDecoder);
+		const decoder = new StreamingVideoDecoder();
+		await decoder.loadMetadata("/tmp/early-end.mp4");
+		const failure = await decoder
+			.decodeAll(30, [{ id: "cut", startMs: 1000, endMs: 3000 }], undefined, vi.fn())
+			.catch((error) => error);
+		expect(failure).toBeInstanceOf(Error);
+		expect(failure.message).toContain("[VIDEO_DECODE_RECOVERY_FAILED]");
+		expect(failure.message).toContain("original bad frame");
+		expect(failure.message).toContain("Software decoder failure: [VIDEO_DECODE_FAILED]");
+		expect(failure.message).toContain("Video decode ended early");
+		expect(failure.message).toContain("chunkIndex=0");
+		expect(failure.message).toContain("hardwareAcceleration=prefer-software");
+		expect(configs).toHaveLength(2);
+		expect(closeFrame).toHaveBeenCalledTimes(1);
+		decoder.destroy();
+	});
+
 	it.each([
 		"EncodingError",
 		"QuotaExceededError",
