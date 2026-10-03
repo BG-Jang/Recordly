@@ -6,6 +6,6 @@ export const EXPIRY_DAYS = 30;
 export const FREE_EXPIRY_DAYS = 14;
 
 export function finiteNonnegative(value) {
-  const number = Number(value);
-  return Number.isFinite(number) && number >= 0 ? number : 0;
+	const number = Number(value);
+	return Number.isFinite(number) && number >= 0 ? number : 0;
 }
