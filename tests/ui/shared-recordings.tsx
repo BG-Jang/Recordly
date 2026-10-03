@@ -1,3 +1,5 @@
+import { CloudShareButton } from "@/components/video-editor/cloud/CloudShareButton";
+import { I18nProvider } from "@/contexts/I18nContext";
 import { createRoot } from "react-dom/client";
 import { SharedRecordings } from "@/components/video-editor/cloud/SharedRecordings";
 import "@/index.css";
@@ -21,7 +23,12 @@ let recordings = [
 		url: "https://example.test/s/demo2",
 	},
 ];
+if (new URLSearchParams(location.search).has("capacity")) {
+	for (let i = 3; i <= 5; i++)
+		recordings.push({ ...recordings[0], code: `demo${i}`, title: `Extra recording ${i}` });
+}
 window.electronAPI = {
+	onCloudShareProgress: () => () => undefined,
 	openExternalUrl: async (url: string) => {
 		document.getElementById("fixture-result")!.textContent = `Opened ${url}`;
 		return { success: true };
@@ -33,13 +40,23 @@ window.electronAPI = {
 	},
 } as unknown as typeof window.electronAPI;
 createRoot(document.getElementById("root")!).render(
-	<main className="dashboard-surface mx-auto mt-3 max-w-6xl rounded-2xl bg-background px-7 pb-10 lg:px-10">
-		<SharedRecordings
-			token="fixture"
-			endpoint="https://example.test/api/upload"
-			standalone
-			accountLabel="Demo creator"
-		/>
-		<p id="fixture-result" role="status" />
-	</main>,
+	<I18nProvider>
+		<main className="dashboard-surface mx-auto mt-3 max-w-6xl rounded-2xl bg-background px-7 pb-10 lg:px-10">
+			{new URLSearchParams(location.search).has("capacity") && (
+				<CloudShareButton
+					inline
+					projectTitle="Fixture"
+					authToken="fixture"
+					accountId="fixture-account"
+				/>
+			)}
+			<SharedRecordings
+				token="fixture"
+				endpoint="https://example.test/api/upload"
+				standalone
+				accountLabel="Demo creator"
+			/>
+			<p id="fixture-result" role="status" />
+		</main>
+	</I18nProvider>,
 );

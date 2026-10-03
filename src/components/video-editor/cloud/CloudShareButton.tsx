@@ -1,4 +1,8 @@
-import { checkShareCapacity, RECORDING_LIMIT_MESSAGE } from "./shareCapacity";
+import {
+	checkShareCapacity,
+	RECORDING_LIMIT_MESSAGE,
+	subscribeShareCapacityChanges,
+} from "./shareCapacity";
 import { SharedRecordings } from "./SharedRecordings";
 import { saveProjectShareLink } from "./projectShareLinks";
 import { useI18n } from "@/contexts/I18nContext";
@@ -71,19 +75,26 @@ export function CloudShareButton({
 		setCheckingCapacity(false);
 		if (!authToken || !DEFAULT_CLOUD_ENDPOINT) return;
 		let active = true;
-		setCheckingCapacity(true);
-		void checkShareCapacity(DEFAULT_CLOUD_ENDPOINT, authToken)
-			.then((available) => {
-				if (active) setCapacityAvailable(available);
-			})
-			.catch(() => {
-				if (active) setCapacityAvailable(null);
-			})
-			.finally(() => {
-				if (active) setCheckingCapacity(false);
-			});
+		let generation = 0;
+		const refresh = () => {
+			const request = ++generation;
+			setCheckingCapacity(true);
+			void checkShareCapacity(DEFAULT_CLOUD_ENDPOINT, authToken)
+				.then((available) => {
+					if (active && request === generation) setCapacityAvailable(available);
+				})
+				.catch(() => {
+					if (active && request === generation) setCapacityAvailable(null);
+				})
+				.finally(() => {
+					if (active && request === generation) setCheckingCapacity(false);
+				});
+		};
+		const unsubscribe = subscribeShareCapacityChanges(refresh);
+		refresh();
 		return () => {
 			active = false;
+			unsubscribe();
 		};
 	}, [authToken]);
 	useEffect(() => {

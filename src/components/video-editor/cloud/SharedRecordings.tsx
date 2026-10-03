@@ -1,5 +1,5 @@
 import { parseSharedRecordingDate } from "./sharedRecordingDate";
-import { FREE_RECORDING_LIMIT } from "./shareCapacity";
+import { FREE_RECORDING_LIMIT, notifyShareCapacityChanged } from "./shareCapacity";
 import { LibrarySkeleton } from "../dashboard/LibrarySkeleton";
 import { ProjectCard } from "../dashboard/ProjectCard";
 import { DashboardToolbar } from "../dashboard/DashboardToolbar";
@@ -83,6 +83,7 @@ export function SharedRecordings({
 				shareCode: code,
 			});
 			if (!result.success) throw new Error(result.error || "Could not delete recording.");
+			notifyShareCapacityChanged();
 			setRecordings((current) => current.filter((recording) => recording.code !== code));
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : String(cause));

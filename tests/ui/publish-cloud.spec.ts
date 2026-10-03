@@ -114,3 +114,28 @@ for (const fails of [false, true]) {
 		).toHaveCount(0);
 	});
 }
+
+test("deleting from another shared library refreshes a mounted Share quota", async ({ page }) => {
+	await page.goto("/tests/ui/shared-recordings.html?capacity");
+	await expect(page.getByRole("button", { name: "Share", exact: true })).toBeDisabled();
+	await page
+		.getByRole("button", { name: "Options for An interrupted upload", exact: true })
+		.click();
+	page.once("dialog", (dialog) => dialog.dismiss());
+	await page.getByRole("menuitem", { name: "Delete recording", exact: true }).click();
+	await expect(page.getByRole("button", { name: "Share", exact: true })).toBeDisabled();
+	await page
+		.getByRole("button", { name: "Options for An interrupted upload", exact: true })
+		.click();
+	page.once("dialog", (dialog) => dialog.accept());
+	await page.getByRole("menuitem", { name: "Delete recording", exact: true }).click();
+	await expect(
+		page.getByRole("button", { name: "An interrupted upload", exact: true }),
+	).toHaveCount(0);
+	await expect(page.getByRole("button", { name: "Share", exact: true })).toBeEnabled();
+	await expect(
+		page.getByText(
+			"You have 5 cloud recordings. Delete one from Shared before sharing another.",
+		),
+	).toHaveCount(0);
+});

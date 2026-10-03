@@ -10,3 +10,17 @@ export async function checkShareCapacity(endpoint: string, token: string): Promi
 	// Pending uploads occupy slots too, matching the backend's atomic quota check.
 	return result.videos.length < FREE_RECORDING_LIMIT;
 }
+
+const capacityListeners = new Set<() => void>();
+
+/** Refresh active quota checks after a successful library mutation in this renderer. */
+export function subscribeShareCapacityChanges(listener: () => void): () => void {
+	capacityListeners.add(listener);
+	return () => {
+		capacityListeners.delete(listener);
+	};
+}
+
+export function notifyShareCapacityChanged(): void {
+	for (const listener of capacityListeners) listener();
+}
