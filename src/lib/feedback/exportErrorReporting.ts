@@ -98,6 +98,6 @@ export async function submitExportErrorReport(report: ExportErrorReport): Promis
 		signal: AbortSignal.timeout(10_000),
 	});
 	if (response.status === 429) throw new Error("Reporting is busy. Please try again later.");
-	if (!response.ok || (await response.json()).success !== true)
-		throw new Error("Could not send the report. Please try again.");
+	const body = response.ok ? await response.json().catch(() => null) : null;
+	if (body?.success !== true) throw new Error("Could not send the report. Please try again.");
 }

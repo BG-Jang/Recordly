@@ -100,3 +100,14 @@ it("does not send when support is unconfigured", async () => {
 	);
 	expect(fetchMock).not.toHaveBeenCalled();
 });
+
+it.each([
+	"<html>Gateway</html>",
+	"OK",
+	"null",
+])("shows a safe fallback for malformed successful replies (%s)", async (body) => {
+	vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body)));
+	await expect(submitExportErrorReport(buildExportErrorReport("error"))).rejects.toThrow(
+		"Could not send the report. Please try again.",
+	);
+});
