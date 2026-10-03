@@ -92,3 +92,25 @@ test("switching accounts clears the previous account's cloud quota", async ({ pa
 		.evaluate((button: HTMLButtonElement) => button.click());
 	await expect(page.getByRole("button", { name: "Share", exact: true })).toBeEnabled();
 });
+
+for (const fails of [false, true]) {
+	test(`ignores an old account's late upload ${fails ? "error" : "success"}`, async ({
+		page,
+	}) => {
+		await page.goto(`/tests/ui/publish.html?switch&controlled${fails ? "&fail" : ""}`);
+		await page.getByRole("button", { name: "Publish", exact: true }).click();
+		await page.getByRole("button", { name: "Share", exact: true }).click();
+		await expect(page.getByText("Uploading · 85%", { exact: true })).toBeVisible();
+		await page
+			.getByRole("button", { name: "Fixture switch account", exact: true })
+			.evaluate((button: HTMLButtonElement) => button.click());
+		await page
+			.getByRole("button", { name: "Fixture finish upload", exact: true })
+			.evaluate((button: HTMLButtonElement) => button.click());
+		await expect(page.getByRole("button", { name: "Share", exact: true })).toBeEnabled();
+		await expect(page.getByRole("button", { name: "Copy link", exact: true })).toHaveCount(0);
+		await expect(
+			page.getByText("Fixture old-account upload failed", { exact: true }),
+		).toHaveCount(0);
+	});
+}

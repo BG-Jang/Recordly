@@ -6,6 +6,7 @@ import "@/index.css";
 import { loadEditorPreferences } from "@/components/video-editor/editorPreferences";
 import { useExportSettings } from "@/components/video-editor/export/useExportSettings";
 const noop = () => undefined;
+let finishUpload: (() => void) | undefined;
 let reportUpload:
 	| ((event: { uploadId: string; uploadedBytes: number; totalBytes: number }) => void)
 	| undefined;
@@ -27,7 +28,15 @@ window.electronAPI = {
 	cloudShareUpload: async ({ uploadId }: { uploadId: string }) => {
 		await new Promise((resolve) => setTimeout(resolve, 800));
 		reportUpload?.({ uploadId, uploadedBytes: 50, totalBytes: 100 });
-		await new Promise((resolve) => setTimeout(resolve, 12000));
+		if (new URLSearchParams(location.search).has("controlled")) {
+			await new Promise<void>((resolve) => {
+				finishUpload = resolve;
+			});
+		} else {
+			await new Promise((resolve) => setTimeout(resolve, 12000));
+		}
+		if (new URLSearchParams(location.search).has("fail"))
+			throw new Error("Fixture old-account upload failed");
 		return { success: true, shareUrl: "https://example.test/s/preview" };
 	},
 	cloudShareCancel: async () => ({ success: true }),
@@ -72,6 +81,9 @@ function Preview() {
 		<div className="flex justify-end p-12">
 			{new URLSearchParams(location.search).has("switch") && (
 				<div>
+					<button type="button" onClick={() => finishUpload?.()}>
+						Fixture finish upload
+					</button>
 					<button type="button" onClick={() => setAuthToken("refreshed-fixture")}>
 						Fixture refresh token
 					</button>

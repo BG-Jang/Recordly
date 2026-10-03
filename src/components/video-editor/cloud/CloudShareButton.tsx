@@ -3,7 +3,7 @@ import { SharedRecordings } from "./SharedRecordings";
 import { saveProjectShareLink } from "./projectShareLinks";
 import { useI18n } from "@/contexts/I18nContext";
 import { Check } from "@/components/ui/icons";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -94,9 +94,11 @@ export function CloudShareButton({
 	const [shareUrl, setShareUrl] = useState<string>();
 	const [copied, setCopied] = useState(false);
 	const previousAccountId = useRef(accountId);
-	useEffect(() => {
+	const accountVersion = useRef(0);
+	useLayoutEffect(() => {
 		if (previousAccountId.current === accountId) return;
 		previousAccountId.current = accountId;
+		accountVersion.current++;
 		setError(undefined);
 		setShareUrl(undefined);
 		setCopied(false);
@@ -149,6 +151,9 @@ export function CloudShareButton({
 	);
 
 	const handleUpload = useCallback(async () => {
+		// A generation also catches switching away and back to the same account.
+		const uploadAccountVersion = accountVersion.current;
+		const isCurrentAccount = () => uploadAccountVersion === accountVersion.current;
 		setUploading(true);
 		setProgress(0);
 		setPhase("idle");
@@ -160,6 +165,7 @@ export function CloudShareButton({
 				throw new Error("Cloud sharing is not available in this build yet.");
 			if (!authToken) throw new Error(t("editor.cloud.signInRequired"));
 			const available = await checkShareCapacity(DEFAULT_CLOUD_ENDPOINT, authToken);
+			if (!isCurrentAccount()) return;
 			setCapacityAvailable(available);
 			if (!available) throw new Error(RECORDING_LIMIT_MESSAGE);
 			if (cancelRequestedRef.current) return;
@@ -167,7 +173,7 @@ export function CloudShareButton({
 			let resolvedFilePath = filePath ?? preparedFileRef.current;
 			if (!resolvedFilePath) {
 				resolvedFilePath = await prepareFile?.();
-				if (cancelRequestedRef.current) {
+				if (cancelRequestedRef.current || !isCurrentAccount()) {
 					if (resolvedFilePath)
 						void window.electronAPI.discardExportedTemp(resolvedFilePath);
 					return;
@@ -188,6 +194,7 @@ export function CloudShareButton({
 				notes: notes.trim() || undefined,
 				uploadId: nextUploadId,
 			});
+			if (!isCurrentAccount()) return;
 			if (!result.success || !result.shareUrl) {
 				if (!result.canceled) setError(result.error || t("editor.cloud.uploadFailed"));
 				return;
@@ -203,6 +210,7 @@ export function CloudShareButton({
 			}
 			toast.success(t("editor.cloud.linkCreated"));
 		} catch (cause) {
+			if (!isCurrentAccount()) return;
 			setError(cause instanceof Error ? cause.message : String(cause));
 		} finally {
 			setUploading(false);
