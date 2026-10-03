@@ -10,11 +10,12 @@ let reportUpload:
 	| ((event: { uploadId: string; uploadedBytes: number; totalBytes: number }) => void)
 	| undefined;
 window.electronAPI = {
-	cloudShareManage: async () => ({
+	cloudShareManage: async ({ token }: { token: string }) => ({
 		success: true,
-		videos: new URLSearchParams(location.search).has("full")
-			? Array(5).fill({ ready: true })
-			: [],
+		videos:
+			token === "fixture" && new URLSearchParams(location.search).has("full")
+				? Array(5).fill({ ready: true })
+				: [],
 	}),
 	onCloudShareProgress: (callback: typeof reportUpload) => {
 		reportUpload = callback;
@@ -33,6 +34,7 @@ window.electronAPI = {
 } as unknown as typeof window.electronAPI;
 function Preview() {
 	const [open, setOpen] = useState(false);
+	const [authToken, setAuthToken] = useState<string | undefined>("fixture");
 	const [percentage, setPercentage] = useState(0);
 	const { t } = useI18n();
 	const [preferences] = useState(loadEditorPreferences);
@@ -40,7 +42,7 @@ function Preview() {
 	const props = {
 		t,
 		projectTitle: "Preview",
-		authToken: "fixture",
+		authToken,
 		shareRequestNonce: 0,
 		exportSettings,
 		exportSession: {
@@ -66,6 +68,16 @@ function Preview() {
 	} as unknown as ComponentProps<typeof EditorExportMenu>;
 	return (
 		<div className="flex justify-end p-12">
+			{new URLSearchParams(location.search).has("switch") && (
+				<div>
+					<button type="button" onClick={() => setAuthToken(undefined)}>
+						Fixture sign out
+					</button>
+					<button type="button" onClick={() => setAuthToken("other")}>
+						Fixture switch account
+					</button>
+				</div>
+			)}
 			<EditorExportMenu {...props} />
 		</div>
 	);

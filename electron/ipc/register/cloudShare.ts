@@ -4,7 +4,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { Transform } from "node:stream";
 import { ipcMain } from "electron";
-import { normalizeCloudEndpoint, parseCloudShareTicket } from "../cloudShareContract";
+import {
+	normalizeCloudEndpoint,
+	parseCloudRecordingList,
+	parseCloudShareTicket,
+} from "../cloudShareContract";
 import { isOwnedExportPath } from "../export/exportStream";
 import { isAllowedLocalReadPath } from "../project/manager";
 
@@ -289,27 +293,9 @@ export function registerCloudShareHandlers() {
 						await responseError(response, "Could not manage shared recordings"),
 					);
 				if (input.action === "delete") return { success: true };
-				const data = (await readJsonResponse(response)) as { videos?: unknown };
-				if (!Array.isArray(data.videos)) throw new Error("Invalid recordings response.");
 				return {
 					success: true,
-					videos: data.videos.slice(0, 100).map((video: Record<string, unknown>) => {
-						if (
-							typeof video.share_code !== "string" ||
-							!/^[a-z0-9]{1,128}$/.test(video.share_code) ||
-							typeof video.title !== "string"
-						)
-							throw new Error("Invalid recording response.");
-						return {
-							code: video.share_code,
-							title: video.title,
-							size: Number(video.file_size) || 0,
-							createdAt:
-								typeof video.created_at === "string" ? video.created_at : undefined,
-							ready: video.upload_completed === 1,
-							url: new URL(`/s/${video.share_code}`, endpoint).href,
-						};
-					}),
+					videos: parseCloudRecordingList(await readJsonResponse(response), endpoint),
 				};
 			} catch (error) {
 				return {

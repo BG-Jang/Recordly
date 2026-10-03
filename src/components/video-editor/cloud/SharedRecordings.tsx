@@ -1,3 +1,4 @@
+import { FREE_RECORDING_LIMIT } from "./shareCapacity";
 import { LibrarySkeleton } from "../dashboard/LibrarySkeleton";
 import { ProjectCard } from "../dashboard/ProjectCard";
 import { DashboardToolbar } from "../dashboard/DashboardToolbar";
@@ -65,9 +66,12 @@ export function SharedRecordings({
 	// biome-ignore lint/correctness/useExhaustiveDependencies: A new share URL must refresh this library.
 	useEffect(() => {
 		if (expanded) void load();
-		return () => { loadGeneration.current += 1; };
+		return () => {
+			loadGeneration.current += 1;
+		};
 	}, [expanded, load, refreshKey]);
 	const remove = async (code: string) => {
+		if (!window.confirm("Delete this shared recording? This cannot be undone.")) return;
 		setDeleting(code);
 		setError(undefined);
 		try {
@@ -131,6 +135,7 @@ export function SharedRecordings({
 					run={run}
 					busy={loading || Boolean(deleting)}
 					actionLabel="Refresh"
+					action="refresh"
 				/>
 				<DashboardFilters
 					hideSelection
@@ -214,18 +219,14 @@ export function SharedRecordings({
 	return (
 		<section className="space-y-3 border-b border-foreground/10 pb-4">
 			<div className="flex items-center justify-between gap-2">
-				{standalone ? (
-					<h2 className="text-lg font-semibold">Shared recordings</h2>
-				) : (
-					<Button
-						variant="ghost"
-						size="sm"
-						onPress={() => setExpanded((value) => !value)}
-						aria-expanded={expanded}
-					>
-						{expanded ? "Hide shared recordings" : "Manage shared recordings"}
-					</Button>
-				)}
+				<Button
+					variant="ghost"
+					size="sm"
+					onPress={() => setExpanded((value) => !value)}
+					aria-expanded={expanded}
+				>
+					{expanded ? "Hide shared recordings" : "Manage shared recordings"}
+				</Button>
 				{expanded && (
 					<Button
 						variant="ghost"
@@ -244,16 +245,12 @@ export function SharedRecordings({
 					<p className="text-xs text-muted">
 						{loading
 							? "Loading recordings…"
-							: `${recordings.length} of 5 recordings · 1 GB each · Free links expire after 14 days`}
+							: `${recordings.length} of ${FREE_RECORDING_LIMIT} recordings · 1 GB each · Free links expire after 14 days`}
 					</p>
 					{loading ? (
 						<LibrarySkeleton />
 					) : (
-						<ul
-							className={
-								standalone ? "space-y-2" : "max-h-64 space-y-2 overflow-y-auto"
-							}
-						>
+						<ul className="max-h-64 space-y-2 overflow-y-auto">
 							{recordings.map((recording) => (
 								<li
 									key={recording.code}

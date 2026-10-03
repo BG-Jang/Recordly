@@ -65,6 +65,11 @@ export function CloudShareButton({
 	const [capacityAvailable, setCapacityAvailable] = useState<boolean | null>(null);
 	const [checkingCapacity, setCheckingCapacity] = useState(false);
 	useEffect(() => {
+		setCapacityAvailable(null);
+		setCheckingCapacity(false);
+		setError(undefined);
+		setShareUrl(undefined);
+		setCopied(false);
 		if (!authToken || !DEFAULT_CLOUD_ENDPOINT) return;
 		let active = true;
 		setCheckingCapacity(true);

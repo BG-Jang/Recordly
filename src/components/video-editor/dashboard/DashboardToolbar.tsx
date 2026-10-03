@@ -16,10 +16,11 @@ export function DashboardToolbar({
 	run,
 	busy,
 	actionLabel = "Import",
+	action = "import",
 }: Pick<
 	DashboardProps & DashboardModel,
 	"onImportFile" | "query" | "setQuery" | "run" | "busy" | "isRaw"
-> & { actionLabel?: string }) {
+> & { actionLabel?: string; action?: "import" | "refresh" }) {
 	return (
 		<>
 			<header
@@ -46,7 +47,7 @@ export function DashboardToolbar({
 						onClick={() => void run(onImportFile)}
 						className="h-10 shrink-0 gap-2 text-[13px]"
 					>
-						{actionLabel === "Refresh" ? (
+						{action === "refresh" ? (
 							<ArrowClockwise className="size-4" />
 						) : (
 							<UploadSimple className="size-4" />
