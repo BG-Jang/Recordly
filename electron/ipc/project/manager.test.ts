@@ -307,6 +307,7 @@ describe("local media path policy", () => {
 		expect(entry?.path).toBe(projectPath);
 		expect(entry?.thumbnailPath).toBeNull();
 		const task = manager.refreshProjectThumbnail(projectPath, await fs.stat(projectPath));
+		expect(ready).not.toHaveBeenCalled();
 		release(Buffer.from("fixture thumbnail"));
 		await task;
 		expect(generate).toHaveBeenCalledTimes(1);
