@@ -859,6 +859,9 @@ interface Window {
 		trashProjectFiles: (
 			paths: string[],
 		) => Promise<{ success: boolean; deleted: string[]; errors: string[] }>;
+		onProjectThumbnailReady: (
+			callback: (ready: { path: string; thumbnailPath: string; updatedAt: number }) => void,
+		) => () => void;
 		listProjectFiles: () => Promise<{
 			success: boolean;
 			projectsDir?: string | null;

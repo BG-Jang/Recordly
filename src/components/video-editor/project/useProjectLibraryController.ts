@@ -1,5 +1,5 @@
 /* biome-ignore-all lint/correctness/useExhaustiveDependencies: grouped editor domain objects contain the thumbnail renderer dependencies. */
-import { type RefObject, useCallback } from "react";
+import { type RefObject, useCallback, useEffect, useRef } from "react";
 import { PROJECT_THUMBNAIL_WIDTH, PROJECT_THUMBNAIL_HEIGHT } from "@/lib/projectThumbnail";
 import { FrameRenderer } from "@/lib/exporter/frameRenderer";
 import { toFileUrl } from "../projectPersistence";
@@ -77,6 +77,9 @@ export function useProjectLibraryController({
 		speedRegions,
 		zoomRegions,
 	} = timeline;
+	const thumbnailUpdates = useRef(
+		new Map<string, { thumbnailPath: string; updatedAt: number }>(),
+	);
 	const refreshProjectLibrary = useCallback(async () => {
 		setProjectLibraryLoading(true);
 		try {
@@ -85,13 +88,39 @@ export function useProjectLibraryController({
 				throw new Error(result.error || "Failed to load project library");
 			}
 
-			setProjectLibraryEntries(result.entries);
+			setProjectLibraryEntries(
+				result.entries.map((entry) => {
+					const ready = thumbnailUpdates.current.get(entry.path);
+					return ready?.updatedAt === entry.updatedAt
+						? { ...entry, thumbnailPath: ready.thumbnailPath }
+						: entry;
+				}),
+			);
+			const paths = new Set(result.entries.map((entry) => entry.path));
+			for (const key of thumbnailUpdates.current.keys()) {
+				if (!paths.has(key)) thumbnailUpdates.current.delete(key);
+			}
 		} catch (projectLibraryError) {
 			console.warn("Unable to refresh project library:", projectLibraryError);
 		} finally {
 			setProjectLibraryLoading(false);
 		}
 	}, []);
+
+	useEffect(
+		() =>
+			window.electronAPI.onProjectThumbnailReady?.((ready) => {
+				thumbnailUpdates.current.set(ready.path, ready);
+				setProjectLibraryEntries((entries) =>
+					entries.map((entry) =>
+						entry.path === ready.path && entry.updatedAt === ready.updatedAt
+							? { ...entry, thumbnailPath: ready.thumbnailPath }
+							: entry,
+					),
+				);
+			}),
+		[setProjectLibraryEntries],
+	);
 
 	const captureProjectThumbnail = useCallback(async () => {
 		const previewHandle = videoPlaybackRef.current;

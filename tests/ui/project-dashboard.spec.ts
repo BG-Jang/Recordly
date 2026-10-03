@@ -4,7 +4,9 @@ import { hasFreshProjectThumbnail } from "../../electron/ipc/project/thumbnailFr
 import { expect, test } from "@playwright/test";
 import { installDesktopBridge, installDesktopBridgeOverrides } from "./bridge";
 
-test("Home opens with a wireframe while saving and returns to the main library", async ({ page }) => {
+test("Home opens with a wireframe while saving and returns to the main library", async ({
+	page,
+}) => {
 	await installDesktopBridge(page);
 	await page.goto("/?windowType=editor");
 	await expect(page.locator("html")).toHaveAttribute("data-project-creates", "1");
@@ -30,9 +32,14 @@ test("Home opens with a wireframe while saving and returns to the main library",
 	await expect(home.getByRole("region", { name: "Dashboard settings" })).toBeVisible();
 	await page.keyboard.press("Escape");
 	await expect(home).not.toBeVisible();
+	await page.evaluate(() => {
+		delete document.documentElement.dataset.savePending;
+	});
 	await page.getByRole("button", { name: "Home", exact: true }).click();
 	await expect(home.getByRole("textbox", { name: "Search projects" })).toBeVisible();
-	await expect(home.getByLabel("Loading projects")).toBeVisible();
+	await expect(page.locator("html")).toHaveAttribute("data-save-pending", "true");
+	await page.evaluate(() => window.dispatchEvent(new Event("test-release-save")));
+	await expect(home.getByLabel("Loading projects")).toHaveCount(0);
 });
 
 test("home dashboard searches, sorts, opens projects and returns to the editor", async ({

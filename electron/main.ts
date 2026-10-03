@@ -1,3 +1,4 @@
+import { createSaveBeforeCloseController } from "./saveBeforeClose";
 import { clearRecordingTrashUndo } from "./ipc/recording/library";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -6,6 +7,7 @@ import {
 	app,
 	BrowserWindow,
 	desktopCapturer,
+	dialog,
 	webContents as electronWebContents,
 	ipcMain,
 	Menu,
@@ -813,7 +815,39 @@ function createEditorWindowWrapper() {
 		editorHasUnsavedChanges = false;
 	});
 
-	let savingBeforeClose = false;
+	const closeAfterSave = () => {
+		if (process.platform === "win32" && !isAppQuitting) closeEditorWindowToHud(editorWindow);
+		else closeEditorWindowBypassingUnsavedPrompt(editorWindow);
+	};
+	let closeSaveRequestId = 0;
+	const closeSave = createSaveBeforeCloseController({
+		requestSave: () =>
+			editorWindow.webContents.send("request-save-before-close", ++closeSaveRequestId),
+		subscribe: (done) => {
+			const saved = (event: Electron.IpcMainEvent, success: unknown, requestId: unknown) => {
+				if (event.sender === editorWindow.webContents && requestId === closeSaveRequestId)
+					done(success === true);
+			};
+			ipcMain.on("save-before-close-done", saved);
+			return () => ipcMain.removeListener("save-before-close-done", saved);
+		},
+		offerDiscard: async () => {
+			const result = await dialog.showMessageBox(editorWindow, {
+				type: "warning",
+				buttons: ["Discard & Close", "Cancel"],
+				defaultId: 1,
+				cancelId: 1,
+				title: "Project could not be saved",
+				message: "Saving failed or did not respond. Discard unsaved changes and close?",
+			});
+			return result.response === 0;
+		},
+		close: closeAfterSave,
+		cancel: () => {
+			isAppQuitting = false;
+		},
+	});
+	editorWindow.once("closed", closeSave.dispose);
 	editorWindow.on("close", (event) => {
 		if (isForceClosing || !editorHasUnsavedChanges) {
 			if (process.platform === "win32" && !isForceClosing && !isAppQuitting) {
@@ -822,28 +856,8 @@ function createEditorWindowWrapper() {
 			}
 			return;
 		}
-
 		event.preventDefault();
-
-		if (editorWindow.webContents.isDestroyed() || savingBeforeClose) return;
-		savingBeforeClose = true;
-		const saved = (sender: Electron.IpcMainEvent, success: boolean) => {
-			if (sender.sender !== editorWindow.webContents) return;
-			ipcMain.removeListener("save-before-close-done", saved);
-			editorWindow.removeListener("closed", cancelPendingSave);
-			savingBeforeClose = false;
-			if (!success) {
-				isAppQuitting = false;
-				return;
-			}
-			if (process.platform === "win32" && !isAppQuitting)
-				closeEditorWindowToHud(editorWindow);
-			else closeEditorWindowBypassingUnsavedPrompt(editorWindow);
-		};
-		const cancelPendingSave = () => ipcMain.removeListener("save-before-close-done", saved);
-		ipcMain.on("save-before-close-done", saved);
-		editorWindow.once("closed", cancelPendingSave);
-		editorWindow.webContents.send("request-save-before-close");
+		closeSave.start();
 	});
 
 	return editorWindow;
