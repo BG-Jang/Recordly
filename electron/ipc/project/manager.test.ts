@@ -43,6 +43,7 @@ describe("local media path policy", () => {
 		vi.resetModules();
 		vi.doUnmock("electron");
 		vi.doUnmock("../../mediaServer");
+		vi.doUnmock("./firstFrameThumbnail");
 		if (tempRoot) {
 			await fs.rm(tempRoot, { recursive: true, force: true });
 		}
@@ -170,6 +171,30 @@ describe("local media path policy", () => {
 
 		await expect(isAllowedLocalMediaPath(symlinkInsideUserData)).resolves.toBe(false);
 		await expect(resolveApprovedLocalMediaPath(symlinkInsideUserData)).resolves.toBeNull();
+	});
+
+	it("generates a missing project poster once and keeps it cached", async () => {
+		const png = Buffer.alloc(24);
+		Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(png);
+		png.writeUInt32BE(640, 16);
+		png.writeUInt32BE(480, 20);
+		const generate = vi.fn().mockResolvedValue(png);
+		vi.doMock("./firstFrameThumbnail", () => ({ createProjectFirstFrameThumbnail: generate }));
+		const manager = await import("./manager");
+		const source = path.join(tempRoot, "source.mp4");
+		const projectPath = path.join(tempRoot, "test.recordly");
+		await fs.writeFile(source, "video");
+		await fs.writeFile(
+			projectPath,
+			JSON.stringify({ version: 2, videoPath: source, editor: {} }),
+		);
+		const before = await fs.readFile(projectPath, "utf8");
+		const entry = await manager.buildProjectLibraryEntry(projectPath, tempRoot);
+		expect(entry?.thumbnailPath).toBe(manager.getProjectThumbnailPath(projectPath));
+		expect(generate).toHaveBeenCalledWith(source);
+		await manager.buildProjectLibraryEntry(projectPath, tempRoot);
+		expect(generate).toHaveBeenCalledTimes(1);
+		expect(await fs.readFile(projectPath, "utf8")).toBe(before);
 	});
 
 	it("preserves an existing project thumbnail when no replacement is provided", async () => {

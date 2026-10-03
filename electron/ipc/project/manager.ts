@@ -1,3 +1,4 @@
+import { createProjectFirstFrameThumbnail } from "./firstFrameThumbnail";
 import { buildMediaUrl, getMediaServerBaseUrl } from "../../mediaServer";
 import type { ProjectPreviewData } from "../../../src/types/projectPreview";
 import { hasFreshProjectThumbnail } from "./thumbnailFreshness";
@@ -338,7 +339,26 @@ export async function buildProjectLibraryEntry(
 		}
 
 		const thumbnailPath = getProjectThumbnailPath(normalizedPath);
-		const thumbnailExists = await hasFreshProjectThumbnail(thumbnailPath, stats.mtimeMs);
+		let thumbnailExists = await hasFreshProjectThumbnail(thumbnailPath, stats.mtimeMs);
+		if (!thumbnailExists) {
+			try {
+				const project = parseJsonWithByteOrderMark(
+					await fs.readFile(normalizedPath, "utf-8"),
+				);
+				if (isLoadableProjectData(project)) {
+					const media = await resolveProjectMediaSources(project);
+					if (media.success) {
+						const thumbnail = await createProjectFirstFrameThumbnail(media.videoPath);
+						if (!(await hasFreshProjectThumbnail(thumbnailPath, stats.mtimeMs))) {
+							await fs.writeFile(thumbnailPath, thumbnail);
+						}
+						thumbnailExists = true;
+					}
+				}
+			} catch {
+				// Missing/offline source media must not hide a project from the library.
+			}
+		}
 
 		return {
 			path: normalizedPath,

@@ -1,3 +1,4 @@
+import { LibrarySkeleton } from "./LibrarySkeleton";
 import { RecordNewButton } from "./RecordNewButton";
 import { RawPreview } from "./RawRecordings";
 import { Cloud, ImageSquare } from "@/components/ui/icons";
@@ -13,6 +14,8 @@ import type { DashboardModel } from "./useDashboardModel";
 
 export function DashboardGrid({
 	onImportFile,
+	loading,
+	deleteEntries,
 	isRaw,
 	rawPreview,
 	setRawPreview,
@@ -40,6 +43,8 @@ export function DashboardGrid({
 	run,
 }: Pick<
 	DashboardProps & DashboardModel,
+	| "loading"
+	| "deleteEntries"
 	| "onImportFile"
 	| "isRaw"
 	| "rawPreview"
@@ -89,6 +94,8 @@ export function DashboardGrid({
 							{accountLabel ? "Account" : "Sign in"}
 						</Button>
 					</div>
+				) : (isRaw ? rawLoading : loading) ? (
+					<LibrarySkeleton />
 				) : visible.length ? (
 					<ul
 						aria-label={isRaw ? "Raw files" : "Your projects"}
@@ -97,6 +104,7 @@ export function DashboardGrid({
 						{visible.map((entry) => (
 							<ProjectCard
 								key={entry.path}
+								onDelete={() => void deleteEntries([entry.path])}
 								{...{
 									accountLabel,
 									entry,

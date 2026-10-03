@@ -6,7 +6,6 @@ import {
 	app,
 	BrowserWindow,
 	desktopCapturer,
-	dialog,
 	webContents as electronWebContents,
 	ipcMain,
 	Menu,
@@ -428,10 +427,13 @@ function sendEditorMenuAction(
 		targetWindow = mainWindow;
 		if (!targetWindow || targetWindow.isDestroyed()) return;
 
-		targetWindow.webContents.once("did-finish-load", () => {
+		const send = () => {
 			if (!targetWindow || targetWindow.isDestroyed()) return;
 			targetWindow.webContents.send(channel);
-		});
+		};
+		if (targetWindow.webContents.isLoadingMainFrame())
+			targetWindow.webContents.once("did-finish-load", send);
+		else send();
 		return;
 	}
 
@@ -811,6 +813,7 @@ function createEditorWindowWrapper() {
 		editorHasUnsavedChanges = false;
 	});
 
+	let savingBeforeClose = false;
 	editorWindow.on("close", (event) => {
 		if (isForceClosing || !editorHasUnsavedChanges) {
 			if (process.platform === "win32" && !isForceClosing && !isAppQuitting) {
@@ -822,39 +825,25 @@ function createEditorWindowWrapper() {
 
 		event.preventDefault();
 
-		const choice = dialog.showMessageBoxSync(editorWindow, {
-			type: "warning",
-			buttons: ["Save & Close", "Discard & Close", "Cancel"],
-			defaultId: 0,
-			cancelId: 2,
-			title: "Unsaved Changes",
-			message: "You have unsaved changes.",
-			detail: "Do you want to save your project before closing?",
-		});
-
-		if (choice === 0) {
-			editorWindow.webContents.send("request-save-before-close");
-			ipcMain.once("save-before-close-done", (_event, saved: boolean) => {
-				if (!saved) {
-					isAppQuitting = false;
-					return;
-				}
-
-				if (process.platform === "win32" && !isAppQuitting) {
-					closeEditorWindowToHud(editorWindow);
-				} else {
-					closeEditorWindowBypassingUnsavedPrompt(editorWindow);
-				}
-			});
-		} else if (choice === 1) {
-			if (process.platform === "win32" && !isAppQuitting) {
-				closeEditorWindowToHud(editorWindow);
-			} else {
-				closeEditorWindowBypassingUnsavedPrompt(editorWindow);
+		if (editorWindow.webContents.isDestroyed() || savingBeforeClose) return;
+		savingBeforeClose = true;
+		const saved = (sender: Electron.IpcMainEvent, success: boolean) => {
+			if (sender.sender !== editorWindow.webContents) return;
+			ipcMain.removeListener("save-before-close-done", saved);
+			editorWindow.removeListener("closed", cancelPendingSave);
+			savingBeforeClose = false;
+			if (!success) {
+				isAppQuitting = false;
+				return;
 			}
-		} else {
-			isAppQuitting = false;
-		}
+			if (process.platform === "win32" && !isAppQuitting)
+				closeEditorWindowToHud(editorWindow);
+			else closeEditorWindowBypassingUnsavedPrompt(editorWindow);
+		};
+		const cancelPendingSave = () => ipcMain.removeListener("save-before-close-done", saved);
+		ipcMain.on("save-before-close-done", saved);
+		editorWindow.once("closed", cancelPendingSave);
+		editorWindow.webContents.send("request-save-before-close");
 	});
 
 	return editorWindow;
@@ -889,6 +878,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("activate", () => {
+	if (getHudOverlayWindow()?.isVisible()) return;
 	// On OS X it's common to re-create a window in the app when the
 	// dock icon is clicked and there are no other windows open.
 	focusOrCreateMainWindow();
