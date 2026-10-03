@@ -194,6 +194,7 @@ export function EditorShell(props: Props) {
 						else setShareRequestNonce((value) => value + 1);
 					}}
 					accountLabel={auth.user?.email}
+					authToken={auth.accessToken}
 					handleImportMediaOrProject={openActions.handleImportMediaOrProject}
 					handleOpenProjectFromLibrary={openActions.handleOpenProjectFromLibrary}
 					nativeCaptureUnavailableModalOpen={ui.nativeCaptureUnavailableModalOpen}
@@ -289,6 +290,7 @@ export function EditorShell(props: Props) {
 				onRequestShareSignIn={() => requestSignIn("share")}
 				shareRequestNonce={shareRequestNonce}
 				authToken={auth.accessToken}
+				accountId={auth.user?.id}
 				revealExportedFile={dialogActions.revealExportedFile}
 				exportMessage={exportMessage}
 			/>

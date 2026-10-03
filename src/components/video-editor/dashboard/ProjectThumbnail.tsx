@@ -9,14 +9,17 @@ export function ProjectThumbnail({
 	projectPath,
 	previewActive = false,
 	revision = 0,
+	videoSource,
 }: {
 	path: string | null;
 	projectPath?: string;
 	previewActive?: boolean;
 	revision?: number;
+	videoSource?: string;
 }) {
 	const [loadedSource, setLoadedSource] = useState<string | null>(null);
 	const [failedSource, setFailedSource] = useState<string | null>(null);
+	const [visible, setVisible] = useState(false);
 	const [preview, setPreview] = useState<ProjectPreviewData | null>(null);
 	const host = useRef<HTMLDivElement>(null);
 	const finish = useCallback(() => setPreview(null), []);
@@ -50,6 +53,15 @@ export function ProjectThumbnail({
 			setPreview(null);
 		};
 	}, [previewActive, projectPath, revision]);
+	useEffect(() => {
+		if (!videoSource || !host.current) return;
+		const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), {
+			rootMargin: "100px",
+		});
+		observer.observe(host.current);
+		return () => observer.disconnect();
+	}, [videoSource]);
+
 	const sourceKey = `${path}:${revision}`;
 	return (
 		<div
@@ -72,6 +84,16 @@ export function ProjectThumbnail({
 					onError={() => setFailedSource(sourceKey)}
 					onLoad={() => setLoadedSource(sourceKey)}
 					className="h-full w-full object-cover"
+				/>
+			) : videoSource && visible ? (
+				<video
+					src={videoSource}
+					preload="metadata"
+					muted
+					playsInline
+					tabIndex={-1}
+					aria-hidden="true"
+					className="pointer-events-none h-full w-full object-cover"
 				/>
 			) : (
 				<ImageSquare weight="fill" className="size-8 text-muted-foreground/20" />

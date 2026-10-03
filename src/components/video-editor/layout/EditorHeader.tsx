@@ -58,6 +58,7 @@ type Props = {
 	onRequestShareSignIn: () => void;
 	shareRequestNonce: number;
 	authToken?: string;
+	accountId?: string;
 };
 
 export function EditorHeader(props: Props) {
@@ -245,6 +246,7 @@ export function EditorHeader(props: Props) {
 					onRequestShareSignIn={props.onRequestShareSignIn}
 					shareRequestNonce={props.shareRequestNonce}
 					authToken={props.authToken}
+					accountId={props.accountId}
 				/>
 			</div>
 		</header>
