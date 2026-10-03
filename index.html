@@ -15,7 +15,7 @@
         try {
           preference = window.electronAPI?.getAppSetting("recordly.theme") ||
             localStorage.getItem("recordly.theme") || "system";
-        } catch {}
+        } catch { /* Use the system theme when persisted settings are unavailable. */ }
         document.documentElement.dataset.theme =
           preference === "dark" ||
           (preference !== "light" && matchMedia("(prefers-color-scheme: dark)").matches)
