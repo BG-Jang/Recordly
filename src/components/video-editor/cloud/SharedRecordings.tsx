@@ -1,3 +1,4 @@
+import { parseSharedRecordingDate } from "./sharedRecordingDate";
 import { FREE_RECORDING_LIMIT } from "./shareCapacity";
 import { LibrarySkeleton } from "../dashboard/LibrarySkeleton";
 import { ProjectCard } from "../dashboard/ProjectCard";
@@ -94,13 +95,7 @@ export function SharedRecordings({
 			.map((recording) => ({
 				path: recording.code,
 				name: recording.title,
-				updatedAt: recording.createdAt
-					? Date.parse(
-							recording.createdAt.includes("T")
-								? recording.createdAt
-								: recording.createdAt.replace(" ", "T") + "Z",
-						)
-					: 0,
+				updatedAt: parseSharedRecordingDate(recording.createdAt),
 				thumbnailPath: recording.ready
 					? new URL(`/thumb/${recording.code}`, endpoint).href
 					: null,

@@ -38,6 +38,7 @@ type Props = {
 	onRequestShareSignIn: () => void;
 	shareRequestNonce: number;
 	authToken?: string;
+	accountId?: string;
 };
 
 export function EditorExportMenu(props: Props) {
@@ -246,6 +247,7 @@ export function EditorExportMenu(props: Props) {
 											onCancelPrepare={handleCancelExport}
 											preparationProgress={exportProgress?.percentage ?? 0}
 											authToken={props.authToken}
+											accountId={props.accountId}
 											onBusyChange={setShareBusy}
 											onRequestSignIn={() => {
 												setShowExportDropdown(false);

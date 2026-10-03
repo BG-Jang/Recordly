@@ -35,6 +35,7 @@ window.electronAPI = {
 function Preview() {
 	const [open, setOpen] = useState(false);
 	const [authToken, setAuthToken] = useState<string | undefined>("fixture");
+	const [accountId, setAccountId] = useState<string | undefined>("fixture-account");
 	const [percentage, setPercentage] = useState(0);
 	const { t } = useI18n();
 	const [preferences] = useState(loadEditorPreferences);
@@ -43,6 +44,7 @@ function Preview() {
 		t,
 		projectTitle: "Preview",
 		authToken,
+		accountId,
 		shareRequestNonce: 0,
 		exportSettings,
 		exportSession: {
@@ -70,10 +72,25 @@ function Preview() {
 		<div className="flex justify-end p-12">
 			{new URLSearchParams(location.search).has("switch") && (
 				<div>
-					<button type="button" onClick={() => setAuthToken(undefined)}>
+					<button type="button" onClick={() => setAuthToken("refreshed-fixture")}>
+						Fixture refresh token
+					</button>
+					<button
+						type="button"
+						onClick={() => {
+							setAuthToken(undefined);
+							setAccountId(undefined);
+						}}
+					>
 						Fixture sign out
 					</button>
-					<button type="button" onClick={() => setAuthToken("other")}>
+					<button
+						type="button"
+						onClick={() => {
+							setAuthToken("other");
+							setAccountId("other-account");
+						}}
+					>
 						Fixture switch account
 					</button>
 				</div>

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test("publish preserves local destination and stays open throughout sharing", async ({ page }) => {
-	await page.goto("/tests/ui/publish.html");
+	await page.goto("/tests/ui/publish.html?switch");
 	await page.getByRole("button", { name: "Publish", exact: true }).click();
 	await page.getByRole("row", { name: "Local", exact: true }).click();
 	await expect(page.getByRole("button", { name: "Export Video", exact: true })).toBeVisible();
@@ -23,6 +23,14 @@ test("publish preserves local destination and stays open throughout sharing", as
 	await expect(page.getByRole("button", { name: "Copy link", exact: true })).toBeVisible({
 		timeout: 20000,
 	});
+	await page
+		.getByRole("button", { name: "Fixture refresh token", exact: true })
+		.evaluate((button: HTMLButtonElement) => button.click());
+	await expect(page.getByRole("button", { name: "Copy link", exact: true })).toBeVisible();
+	await page
+		.getByRole("button", { name: "Fixture switch account", exact: true })
+		.evaluate((button: HTMLButtonElement) => button.click());
+	await expect(page.getByRole("button", { name: "Copy link", exact: true })).toHaveCount(0);
 });
 
 test("a full cloud quota prevents starting preparation", async ({ page }) => {

@@ -29,6 +29,7 @@ type Props = {
 	onOpenChange?: (open: boolean) => void;
 	hideTrigger?: boolean;
 	authToken?: string;
+	accountId?: string;
 	inline?: boolean;
 	onBusyChange?: (busy: boolean) => void;
 	onRequestSignIn?: () => void;
@@ -45,6 +46,7 @@ export function CloudShareButton({
 	onOpenChange,
 	hideTrigger = false,
 	authToken,
+	accountId,
 	inline = false,
 	onBusyChange,
 	onRequestSignIn,
@@ -67,9 +69,6 @@ export function CloudShareButton({
 	useEffect(() => {
 		setCapacityAvailable(null);
 		setCheckingCapacity(false);
-		setError(undefined);
-		setShareUrl(undefined);
-		setCopied(false);
 		if (!authToken || !DEFAULT_CLOUD_ENDPOINT) return;
 		let active = true;
 		setCheckingCapacity(true);
@@ -94,6 +93,14 @@ export function CloudShareButton({
 	const [error, setError] = useState<string>();
 	const [shareUrl, setShareUrl] = useState<string>();
 	const [copied, setCopied] = useState(false);
+	const previousAccountId = useRef(accountId);
+	useEffect(() => {
+		if (previousAccountId.current === accountId) return;
+		previousAccountId.current = accountId;
+		setError(undefined);
+		setShareUrl(undefined);
+		setCopied(false);
+	}, [accountId]);
 	const [notes, setNotes] = useState("");
 	const preparedFileRef = useRef<string | undefined>(undefined);
 	const cancelRequestedRef = useRef(false);

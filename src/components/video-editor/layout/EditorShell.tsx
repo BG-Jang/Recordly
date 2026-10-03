@@ -275,6 +275,7 @@ export function EditorShell(props: Props) {
 				onRequestShareSignIn={() => requestSignIn("share")}
 				shareRequestNonce={shareRequestNonce}
 				authToken={auth.accessToken}
+				accountId={auth.user?.id}
 				revealExportedFile={dialogActions.revealExportedFile}
 				exportMessage={exportMessage}
 			/>
