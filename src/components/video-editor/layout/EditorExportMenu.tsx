@@ -1,3 +1,4 @@
+import { ExportErrorReportButton } from "@/components/feedback/ExportErrorReportButton";
 import { LinkSimple, HardDrive, Export } from "@phosphor-icons/react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CloudShareButton } from "../cloud/CloudShareButton";
@@ -254,6 +255,13 @@ export function EditorExportMenu(props: Props) {
 												props.onRequestShareSignIn();
 											}}
 										/>
+										{exportError && !shareBusy && (
+											<ExportErrorReportButton
+												key={exportError}
+												error={exportError}
+												format="mp4"
+											/>
+										)}
 									</div>
 								) : isExporting ? (
 									<Card className="rounded-none bg-transparent p-5 text-foreground shadow-none">
@@ -382,6 +390,11 @@ export function EditorExportMenu(props: Props) {
 											>
 												{t("editor.exportStatus.copyError", "Copy error")}
 											</Button>
+											<ExportErrorReportButton
+												key={exportError}
+												error={exportError}
+												format={exportFormat}
+											/>
 											{hasPendingExportSave ? (
 												<Button
 													type="button"

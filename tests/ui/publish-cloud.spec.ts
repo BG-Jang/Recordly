@@ -139,3 +139,16 @@ test("deleting from another shared library refreshes a mounted Share quota", asy
 		),
 	).toHaveCount(0);
 });
+
+for (const destination of ["Local", "Link"]) {
+	test(`Publish preserves manual export reporting for ${destination}`, async ({ page }) => {
+		await page.goto("/tests/ui/publish.html?export-error");
+		await page.getByRole("button", { name: "Publish", exact: true }).click();
+		await page.getByRole("row", { name: destination, exact: true }).click();
+		await page.getByRole("button", { name: "Report error", exact: true }).click();
+		const dialog = page.getByRole("dialog", { name: "Report export error", exact: true });
+		await expect(dialog).toBeVisible();
+		await dialog.getByText("View data to be sent", { exact: true }).click();
+		await expect(dialog.locator("pre")).toContainText("VIDEO_DECODE_ENCODING_ERROR");
+	});
+}

@@ -60,6 +60,9 @@ function Preview() {
 			showExportDropdown: open,
 			setShowExportDropdown: setOpen,
 			exportProgress: { percentage },
+			exportError: new URLSearchParams(location.search).has("export-error")
+				? "[VIDEO_DECODE_ENCODING_ERROR] sourceTimeSec=0.500"
+				: undefined,
 		},
 		exportDimensions: { gifOutputDimensions: { width: 800, height: 450 } },
 		exportStatus: {},
