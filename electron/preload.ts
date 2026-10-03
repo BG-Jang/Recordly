@@ -1022,6 +1022,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		notes?: string;
 		uploadId?: string;
 	}) => ipcRenderer.invoke("cloud-share-upload", input),
+	cloudShareManage: (input: {
+		endpoint: string;
+		token: string;
+		action: "list" | "delete";
+		shareCode?: string;
+	}) => ipcRenderer.invoke("cloud-share-manage", input),
 	cloudShareCancel: (uploadId: string) => ipcRenderer.invoke("cloud-share-cancel", uploadId),
 	onCloudShareProgress: (
 		callback: (progress: {

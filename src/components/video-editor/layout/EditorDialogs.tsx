@@ -45,6 +45,7 @@ interface EditorDialogsProps {
 	onRenameProject: (path: string, name: string) => Promise<string>;
 	onShareProject: (path: string) => Promise<void>;
 	accountLabel?: string;
+	authToken?: string;
 	handleImportMediaOrProject: () => Promise<void>;
 	handleOpenProjectFromLibrary: (projectPath: string) => Promise<unknown>;
 	nativeCaptureUnavailableModalOpen: boolean;
@@ -75,6 +76,7 @@ export function EditorDialogs({
 	onRenameProject,
 	onShareProject,
 	accountLabel,
+	authToken,
 	handleImportMediaOrProject,
 	handleOpenProjectFromLibrary,
 	nativeCaptureUnavailableModalOpen,
@@ -194,6 +196,7 @@ export function EditorDialogs({
 				onRenameProject={onRenameProject}
 				onShareProject={onShareProject}
 				accountLabel={accountLabel}
+				authToken={authToken}
 				onImportFile={handleImportMediaOrProject}
 				onOpenProject={handleOpenProjectFromLibrary}
 			/>

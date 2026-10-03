@@ -12,4 +12,5 @@ export type DashboardProps = {
 	onRenameProject: (path: string, name: string) => Promise<string>;
 	onShareProject: (path: string) => Promise<void>;
 	accountLabel?: string;
+	authToken?: string;
 };

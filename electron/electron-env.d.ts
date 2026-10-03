@@ -952,6 +952,23 @@ interface Window {
 			canceled?: boolean;
 			error?: string;
 		}>;
+		cloudShareManage: (input: {
+			endpoint: string;
+			token: string;
+			action: "list" | "delete";
+			shareCode?: string;
+		}) => Promise<{
+			success: boolean;
+			error?: string;
+			videos?: Array<{
+				code: string;
+				createdAt?: string;
+				title: string;
+				size: number;
+				ready: boolean;
+				url: string;
+			}>;
+		}>;
 		cloudShareCancel: (uploadId: string) => Promise<{ success: boolean }>;
 		onCloudShareProgress: (
 			callback: (progress: {

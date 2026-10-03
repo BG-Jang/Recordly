@@ -19,6 +19,7 @@ export function DashboardFilters({
 	visible,
 	busy,
 	deleteEntries,
+	hideSelection = false,
 }: Pick<
 	DashboardModel & DashboardProps,
 	| "isRaw"
@@ -33,7 +34,7 @@ export function DashboardFilters({
 	| "visible"
 	| "busy"
 	| "deleteEntries"
->) {
+> & { hideSelection?: boolean }) {
 	return (
 		<>
 			<div className="flex items-center gap-3 px-7 pb-7 lg:px-10">
@@ -54,21 +55,23 @@ export function DashboardFilters({
 							{label}
 						</Button>
 					))}
-					<Button
-						variant="ghost"
-						size="icon"
-						className="size-7 min-w-7 text-danger"
-						aria-label={
-							isRaw ? "Select raw files to remove" : "Select projects to delete"
-						}
-						aria-pressed={selecting}
-						onClick={() => {
-							setSelecting(!selecting);
-							setSelected([]);
-						}}
-					>
-						<Trash weight="fill" className="size-4" />
-					</Button>
+					{!hideSelection && (
+						<Button
+							variant="ghost"
+							size="icon"
+							className="size-7 min-w-7 text-danger"
+							aria-label={
+								isRaw ? "Select raw files to remove" : "Select projects to delete"
+							}
+							aria-pressed={selecting}
+							onClick={() => {
+								setSelecting(!selecting);
+								setSelected([]);
+							}}
+						>
+							<Trash weight="fill" className="size-4" />
+						</Button>
+					)}
 				</div>
 				<div className="ml-auto">
 					<Dropdown>

@@ -181,6 +181,7 @@ export function EditorShell(props: Props) {
 						else setShareRequestNonce((value) => value + 1);
 					}}
 					accountLabel={auth.user?.email}
+					authToken={auth.accessToken}
 					handleImportMediaOrProject={openActions.handleImportMediaOrProject}
 					handleOpenProjectFromLibrary={openActions.handleOpenProjectFromLibrary}
 					nativeCaptureUnavailableModalOpen={ui.nativeCaptureUnavailableModalOpen}
