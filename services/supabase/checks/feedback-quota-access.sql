@@ -24,6 +24,30 @@ begin
   if public.reserve_feedback_quota(account,6,1) or public.reserve_feedback_quota(account,1,10485761)
     or public.reserve_feedback_quota(account,-1,0) then raise exception 'Submission bounds bypassed'; end if;
 end $$;
+-- Preserve the server insertion path and owner isolation after the access migration.
+select set_config('recordly.quota_test_report', gen_random_uuid()::text, true);
+set local role service_role;
+insert into public.feedback_reports (id, user_id, title, subject, message)
+values (current_setting('recordly.quota_test_report')::uuid, current_setting('recordly.quota_test_owner')::uuid,
+        'Server access check', 'other', 'Temporary test; transaction will roll back.');
+reset role;
+select set_config('request.jwt.claim.sub', current_setting('recordly.quota_test_owner'), true);
+set local role authenticated;
+do $$
+begin
+  if not exists (select 1 from public.feedback_reports where id=current_setting('recordly.quota_test_report')::uuid) then
+    raise exception 'Owner cannot read feedback after access hardening';
+  end if;
+end $$;
+select set_config('request.jwt.claim.sub', gen_random_uuid()::text, true);
+do $$
+begin
+  if exists (select 1 from public.feedback_reports where id=current_setting('recordly.quota_test_report')::uuid) then
+    raise exception 'Cross-user read allowed after access hardening';
+  end if;
+end $$;
+reset role;
+
 -- Exercise this bucket under the client role, without rejecting unrelated bucket policies.
 select set_config('request.jwt.claim.sub', current_setting('recordly.quota_test_owner'), true);
 set local role authenticated;
