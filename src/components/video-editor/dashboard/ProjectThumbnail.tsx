@@ -1,3 +1,4 @@
+import { Skeleton } from "@heroui/react";
 import type { ProjectPreviewData } from "@/types/projectPreview";
 import { ProjectHoverPreview } from "./ProjectHoverPreview";
 import { ImageSquare } from "@/components/ui/icons";
@@ -14,6 +15,7 @@ export function ProjectThumbnail({
 	previewActive?: boolean;
 	revision?: number;
 }) {
+	const [loadedSource, setLoadedSource] = useState<string | null>(null);
 	const [failedSource, setFailedSource] = useState<string | null>(null);
 	const [preview, setPreview] = useState<ProjectPreviewData | null>(null);
 	const host = useRef<HTMLDivElement>(null);
@@ -54,6 +56,9 @@ export function ProjectThumbnail({
 			ref={host}
 			className="relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-xl bg-default/60"
 		>
+			{path && loadedSource !== sourceKey && failedSource !== sourceKey && (
+				<Skeleton className="absolute inset-0 rounded-xl" />
+			)}
 			{path && failedSource !== sourceKey ? (
 				<img
 					src={
@@ -65,6 +70,7 @@ export function ProjectThumbnail({
 					loading="lazy"
 					draggable={false}
 					onError={() => setFailedSource(sourceKey)}
+					onLoad={() => setLoadedSource(sourceKey)}
 					className="h-full w-full object-cover"
 				/>
 			) : (

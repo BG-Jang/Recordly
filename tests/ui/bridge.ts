@@ -93,6 +93,7 @@ export async function installDesktopBridge(page: Page, videoFixture = "preview.m
 				setCurrentRecordingSession: success,
 				setHasUnsavedChanges: success,
 				onAuthCallbackUrl: subscribe,
+				onProjectThumbnailReady: subscribe,
 				getPendingAuthCallbackUrl: async () => null,
 				ackAuthCallbackUrl: success,
 				onMenuSaveProject: subscribe,

@@ -18,7 +18,7 @@ export function DashboardFilters({
 	setSort,
 	visible,
 	busy,
-	setConfirmDelete,
+	deleteEntries,
 }: Pick<
 	DashboardModel & DashboardProps,
 	| "isRaw"
@@ -32,7 +32,7 @@ export function DashboardFilters({
 	| "setSort"
 	| "visible"
 	| "busy"
-	| "setConfirmDelete"
+	| "deleteEntries"
 >) {
 	return (
 		<>
@@ -119,7 +119,7 @@ export function DashboardFilters({
 						variant="destructive"
 						size="sm"
 						disabled={!selected.length || busy}
-						onClick={() => setConfirmDelete(true)}
+						onClick={() => void deleteEntries(selected)}
 					>
 						{isRaw ? "Remove" : "Delete"}
 					</Button>

@@ -25,9 +25,10 @@ type Props = Pick<
 	| "folders"
 	| "save"
 	| "assignFolder"
-> & { entry: ProjectLibraryEntry };
+> & { entry: ProjectLibraryEntry; onDelete?: () => void };
 export function ProjectCard({
 	accountLabel,
+	onDelete,
 	entry,
 	busy,
 	selecting,
@@ -119,6 +120,7 @@ export function ProjectCard({
 						>
 							<input
 								autoFocus
+								onFocus={(event) => event.currentTarget.select()}
 								aria-label={entry.rawSource ? "Raw file name" : "Project name"}
 								className="inline-project-name h-5 w-full pr-8 text-[12px] font-medium"
 								value={name}
@@ -196,7 +198,12 @@ export function ProjectCard({
 											Create a folder in the sidebar
 										</Dropdown.Item>
 									)}
-								</Dropdown.Menu>
+									{onDelete && (
+								<Dropdown.Item id="delete" variant="danger" className="text-danger" isDisabled={busy} onAction={onDelete}>
+									{entry.rawSource ? "Remove from library" : "Delete project"}
+								</Dropdown.Item>
+							)}
+						</Dropdown.Menu>
 							</Dropdown.Popover>
 						</Dropdown>
 					</div>
@@ -219,7 +226,7 @@ export function ProjectCard({
 								id="rename"
 								onAction={() => {
 									setName(entry.name);
-									setEditing(true);
+									requestAnimationFrame(() => requestAnimationFrame(() => setEditing(true)));
 								}}
 							>
 								Rename
@@ -251,6 +258,11 @@ export function ProjectCard({
 							>
 								Show in folder
 							</Dropdown.Item>
+							{onDelete && (
+								<Dropdown.Item id="delete" variant="danger" className="text-danger" isDisabled={busy} onAction={onDelete}>
+									{entry.rawSource ? "Remove from library" : "Delete project"}
+								</Dropdown.Item>
+							)}
 						</Dropdown.Menu>
 					</Dropdown.Popover>
 				</Dropdown>

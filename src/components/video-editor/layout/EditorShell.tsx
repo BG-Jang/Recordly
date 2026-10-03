@@ -178,6 +178,7 @@ export function EditorShell(props: Props) {
 					projectBrowserOpen={project.projectBrowserOpen}
 					setProjectBrowserOpen={project.setProjectBrowserOpen}
 					projectLibraryEntries={project.projectLibraryEntries}
+					projectLibraryLoading={project.projectLibraryLoading}
 					projectError={project.error}
 					onDashboardSignIn={() => requestSignIn("account")}
 					onDeleteProjects={openActions.handleDeleteProjects}

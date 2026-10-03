@@ -1,6 +1,7 @@
 import type { ProjectLibraryEntry } from "../ProjectBrowserDialog";
 export type DashboardProps = {
 	open: boolean;
+	loading?: boolean;
 	onOpenChange: (open: boolean) => void;
 	entries: ProjectLibraryEntry[];
 	onOpenProject: (path: string) => Promise<unknown>;
