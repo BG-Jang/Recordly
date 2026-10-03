@@ -1,6 +1,7 @@
 // Adapted from Voom (MIT), Copyright (c) 2026 Aritro Paul.
 // See ../../LICENSE and ../../../../THIRD_PARTY_NOTICES.md for attribution.
 
+import { abortStoredMultipart, withRecordingLock } from './hostedUploads.js';
 import { EXPIRY_DAYS } from './video.js';
 import { errorResponse, jsonResponse } from './http.js';
 
@@ -46,6 +47,21 @@ function deleteVideoStatements(env, videoId) {
 // --- Cron Cleanup ---
 
 export async function cleanupExpired(env) {
+  if (env.HOSTED_MODE === 'true') {
+    // Release only crash locks older than a full day; live requests cannot run
+    // this long. Then use the same per-recording lock as interactive mutations.
+    await env.DB.prepare("DELETE FROM recording_locks WHERE datetime(created_at) < datetime('now', '-1 day')").run();
+    const stale = await env.DB.prepare("SELECT share_code FROM videos WHERE owner_id IS NOT NULL AND (datetime(expires_at) < datetime('now') OR (upload_completed = 0 AND datetime(created_at) < datetime('now', '-1 day'))) LIMIT 100").all();
+    for (const row of stale.results || []) {
+      await withRecordingLock(env, row.share_code, async () => {
+        const eligible = await env.DB.prepare("SELECT id FROM videos WHERE share_code = ? AND (datetime(expires_at) < datetime('now') OR (upload_completed = 0 AND datetime(created_at) < datetime('now', '-1 day')))").bind(row.share_code).first();
+        if (!eligible) return;
+        await abortStoredMultipart(env, row.share_code);
+        await handleDelete(env, row.share_code);
+      });
+    }
+    return;
+  }
   const expired = await env.DB.prepare(
     "SELECT id, share_code FROM videos WHERE datetime(expires_at) < datetime('now')"
   ).all();
@@ -69,7 +85,7 @@ export async function cleanupExpired(env) {
 
 // --- Check Views (authenticated) ---
 
-export async function handleCheckViews(request, env) {
+export async function handleCheckViews(request, env, ownerId = null) {
   const body = await request.json();
   const { shareCodes } = body;
   if (!Array.isArray(shareCodes) || shareCodes.length === 0) return errorResponse('shareCodes required');
@@ -77,8 +93,8 @@ export async function handleCheckViews(request, env) {
 
   const placeholders = shareCodes.map(() => '?').join(',');
   const results = await env.DB.prepare(
-    `SELECT share_code, view_count FROM videos WHERE share_code IN (${placeholders})`
-  ).bind(...shareCodes).all();
+    `SELECT share_code, view_count FROM videos WHERE share_code IN (${placeholders}) AND (? IS NULL OR owner_id = ?)`
+  ).bind(...shareCodes, ownerId, ownerId).all();
 
   const views = {};
   for (const row of results.results || []) {
@@ -90,13 +106,13 @@ export async function handleCheckViews(request, env) {
 
 // --- Library: list all shared videos (dashboard) ---
 
-export async function handleListVideos(env) {
+export async function handleListVideos(env, ownerId = null) {
   const rows = await env.DB.prepare(
     `SELECT share_code, title, duration, width, height, file_size, created_at, expires_at,
-            view_count, is_meeting, summary, (password_hash IS NOT NULL) AS is_protected
+            view_count, is_meeting, summary, upload_completed, (password_hash IS NOT NULL) AS is_protected
      FROM videos
-     WHERE upload_completed = 1
+     WHERE (upload_completed = 1 OR ? IS NOT NULL) AND (? IS NULL OR owner_id = ?)
      ORDER BY datetime(created_at) DESC`
-  ).all();
+  ).bind(ownerId, ownerId, ownerId).all();
   return jsonResponse({ videos: rows.results || [] });
 }

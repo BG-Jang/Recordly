@@ -118,7 +118,8 @@ describe('schema migration paths', () => {
 
     expect(await videoColumns()).toContain('password_salt');
     const meta = await env.DB.prepare(`SELECT value FROM _meta WHERE key = 'schema_version'`).first();
-    expect(meta.value).toBe('3');
+    expect(meta.value).toBe('5');
+    expect(await videoColumns()).toContain('owner_id');
   });
 
   it('repairs a database mis-stamped as current without the v2 columns', async () => {

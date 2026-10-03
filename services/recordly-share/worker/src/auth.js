@@ -36,6 +36,29 @@ export async function isAuthorized(request, env) {
   }
 }
 
+// Hosted accounts never inherit self-host API-secret or dashboard-cookie access.
+export async function hostedUser(request, env) {
+  const auth = request.headers.get('Authorization') || '';
+  if (!/^Bearer [^\s]+$/.test(auth) || auth.length > 8200) return null;
+  if (!env.SUPABASE_URL || !env.SUPABASE_PUBLISHABLE_KEY) return null;
+  try {
+    const base = new URL(env.SUPABASE_URL);
+    if (base.protocol !== 'https:') return null;
+    const response = await fetch(new URL('/auth/v1/user', base), {
+      headers: { Authorization: auth, apikey: env.SUPABASE_PUBLISHABLE_KEY },
+      redirect: 'error',
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) return null;
+    const user = await response.json();
+    if (typeof user.id !== 'string' || !user.id || !user.email || !user.email_confirmed_at || user.is_anonymous) return null;
+    if (env.STAGING_ALLOWED_USER_ID && user.id !== env.STAGING_ALLOWED_USER_ID) return null;
+    return { id: user.id };
+  } catch {
+    return null;
+  }
+}
+
 async function generateAuthToken(shareCode, expiresAt, apiSecret) {
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
@@ -73,6 +96,7 @@ export async function expectedSessionToken(env, expiresAt = Math.floor(Date.now(
 }
 
 export async function isDashboardAuthed(request, env) {
+  if (env.HOSTED_MODE === 'true') return false;
   return (await isAuthorized(request, env)) || dashboardCookieAuthed(request, env);
 }
 

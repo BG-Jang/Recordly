@@ -11,6 +11,8 @@ export default {
     try {
       return await handleRequest(request, env);
     } catch (e) {
+      if (e.message === 'BODY_TOO_LARGE') return errorResponse('Request body is too large', 413);
+      if (e.message === 'INVALID_JSON') return errorResponse('Invalid JSON body', 400);
       // D1/R2 transient failures and bugs land here instead of surfacing as
       // opaque Workers runtime errors. Keep the response app-shaped (JSON).
       console.error('unhandled error', request.method, new URL(request.url).pathname, e.message, e.stack);
@@ -24,6 +26,7 @@ export default {
       await cleanupExpired(env);
     } catch (e) {
       console.error('cron cleanup failed', e.message, e.stack);
+      throw e; // Surface failed runs to Cloudflare monitoring instead of reporting success.
     }
   },
 };

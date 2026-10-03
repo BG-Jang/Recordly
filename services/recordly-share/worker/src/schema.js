@@ -8,12 +8,15 @@
 // empty, so the worker migrates its own schema at runtime on first request.
 // Authentication uses the API_SECRET set during deploy (dashboard or prompt).
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 5;
 
-// Consolidated current schema (base schema.sql + migrations 0002-0007). All
+// Consolidated current schema (base schema.sql + migrations 0002-0009). All
 // statements are idempotent, so this is safe on both fresh (button-deployed)
 // and existing (token-deployed) databases.
 const SCHEMA_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS recording_uploads (share_code TEXT PRIMARY KEY REFERENCES videos(share_code) ON DELETE CASCADE, upload_id TEXT NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS recording_locks (share_code TEXT PRIMARY KEY, token TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+
   `CREATE TABLE IF NOT EXISTS videos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     share_code TEXT UNIQUE NOT NULL,
@@ -33,8 +36,10 @@ const SCHEMA_STATEMENTS = [
     last_notified_view_count INTEGER NOT NULL DEFAULT 0,
     is_meeting INTEGER NOT NULL DEFAULT 0,
     summary TEXT,
-    password_salt TEXT
+    password_salt TEXT,
+    owner_id TEXT
   )`,
+  `CREATE INDEX IF NOT EXISTS idx_videos_owner ON videos(owner_id)`,
   `CREATE INDEX IF NOT EXISTS idx_videos_share_code ON videos(share_code)`,
   `CREATE INDEX IF NOT EXISTS idx_videos_expires_at ON videos(expires_at)`,
   `CREATE TABLE IF NOT EXISTS transcript_segments (
@@ -103,6 +108,14 @@ const SCHEMA_STATEMENTS = [
 // cannot add columns to existing tables), so any change that ALTERs an
 // existing table MUST appear here under a bumped SCHEMA_VERSION.
 const SCHEMA_MIGRATIONS = {
+  5: [
+    `CREATE TABLE IF NOT EXISTS recording_uploads (share_code TEXT PRIMARY KEY REFERENCES videos(share_code) ON DELETE CASCADE, upload_id TEXT NOT NULL)`,
+    `CREATE TABLE IF NOT EXISTS recording_locks (share_code TEXT PRIMARY KEY, token TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+  ],
+  4: [
+    `ALTER TABLE videos ADD COLUMN owner_id TEXT`,
+    `CREATE INDEX IF NOT EXISTS idx_videos_owner ON videos(owner_id)`,
+  ],
   2: [
     `CREATE INDEX IF NOT EXISTS idx_chapters_video_id ON chapters(video_id)`,
     `ALTER TABLE videos ADD COLUMN password_salt TEXT`,
@@ -169,7 +182,7 @@ export async function ensureSchema(env) {
     if (!(cols.results || []).some(c => c.name === 'password_salt') || !attempts) current = 1;
   }
 
-  if (current === 3) {
+  if (current >= 3) {
     const commentUsers = await env.DB.prepare(
       `SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'comment_users'`
     ).first();

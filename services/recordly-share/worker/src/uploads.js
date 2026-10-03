@@ -1,8 +1,9 @@
 // Adapted from Voom (MIT), Copyright (c) 2026 Aritro Paul.
 // See ../../LICENSE and ../../../../THIRD_PARTY_NOTICES.md for attribution.
 
+import { limitedJson, MAX_RECORDING_BYTES } from './hostedUploads.js';
 import { errorResponse, jsonResponse } from './http.js';
-import { EXPIRY_DAYS, finiteNonnegative } from './video.js';
+import { EXPIRY_DAYS, FREE_EXPIRY_DAYS, finiteNonnegative } from './video.js';
 import { generateSalt, hashRecordingPassword } from './crypto.js';
 
 export function generateShareCode() {
@@ -11,10 +12,13 @@ export function generateShareCode() {
   return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
 }
 
-export async function handleUpload(request, env) {
-  const body = await request.json();
+export async function handleUpload(request, env, ownerId = null) {
+  const body = ownerId ? await limitedJson(request, 16384) : await request.json();
   const { title, duration, width, height, hasWebcam, fileSize, password_hash, cta_url, cta_text } = body;
 
+  if (ownerId && (!Number.isSafeInteger(fileSize) || fileSize <= 0 || fileSize > MAX_RECORDING_BYTES)) return errorResponse('Free recordings must be between 1 byte and 1 GB', 413);
+  if (ownerId && (typeof title !== 'string' || !title.trim() || title.length > 200)) return errorResponse('Title must be between 1 and 200 characters');
+  if (ownerId && ((cta_url && (typeof cta_url !== 'string' || cta_url.length > 2048)) || (cta_text && (typeof cta_text !== 'string' || cta_text.length > 200)) || (password_hash && (typeof password_hash !== 'string' || !/^[a-f0-9]{64}$/.test(password_hash))))) return errorResponse('Invalid recording options');
   if (!title) return errorResponse('title is required');
   if (password_hash && !env.API_SECRET) return errorResponse('Password protection is not configured', 503);
 
@@ -25,7 +29,7 @@ export async function handleUpload(request, env) {
   }
 
   const shareCode = generateShareCode();
-  const expiresAt = new Date(Date.now() + EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + (ownerId ? FREE_EXPIRY_DAYS : EXPIRY_DAYS) * 24 * 60 * 60 * 1000).toISOString();
 
   // Versioned slow hash of the client digest, with a unique per-record salt.
   let storedHash = null;
@@ -35,12 +39,17 @@ export async function handleUpload(request, env) {
     storedHash = await hashRecordingPassword(password_hash, salt);
   }
 
-  await env.DB.prepare(
-    `INSERT INTO videos (share_code, title, duration, width, height, has_webcam, file_size, expires_at, password_hash, password_salt, cta_url, cta_text)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  const inserted = await env.DB.prepare(
+    `INSERT INTO videos (share_code, title, duration, width, height, has_webcam, file_size, expires_at, password_hash, password_salt, cta_url, cta_text, owner_id)
+     SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+     WHERE ? IS NULL OR (SELECT COUNT(*) FROM videos WHERE owner_id = ?) < 5`
   )
-    .bind(shareCode, title, finiteNonnegative(duration), finiteNonnegative(width), finiteNonnegative(height), hasWebcam ? 1 : 0, finiteNonnegative(fileSize), expiresAt, storedHash, salt, cta_url || null, cta_text || null)
+    .bind(shareCode, title, finiteNonnegative(duration), finiteNonnegative(width), finiteNonnegative(height), hasWebcam ? 1 : 0, finiteNonnegative(fileSize), expiresAt, storedHash, salt, cta_url || null, cta_text || null, ownerId, ownerId, ownerId)
     .run();
+
+  // The count and reservation are one SQLite statement: parallel requests cannot
+  // claim the sixth slot. Pending and expired rows count until explicitly deleted.
+  if (inserted.meta.changes === 0) return errorResponse('Free accounts can store up to 5 recordings. Delete one before uploading another.', 409);
 
   const baseUrl = new URL(request.url).origin;
 

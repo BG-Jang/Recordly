@@ -1,10 +1,11 @@
 // Adapted from Voom (MIT), Copyright (c) 2026 Aritro Paul.
 // See ../../LICENSE and ../../../../THIRD_PARTY_NOTICES.md for attribution.
 
+import { handleHostedRecording, limitedJson } from './hostedUploads.js';
 import { ensureSchema } from './schema.js';
 import { commentViewer, handleCommentLogin, handleCommentLogout, handleCommentRegister } from './accounts.js';
 import { errorResponse, jsonResponse } from './http.js';
-import { checkLoginRateLimit, clearLoginRateLimit, dashboardCookieAuthed, dashboardPassword, expectedSessionToken, handleVerifyPassword, isAuthorized, isDashboardAuthed, verifyPasswordAuth } from './auth.js';
+import { checkLoginRateLimit, clearLoginRateLimit, dashboardCookieAuthed, dashboardPassword, expectedSessionToken, handleVerifyPassword, hostedUser, isAuthorized, isDashboardAuthed, verifyPasswordAuth } from './auth.js';
 import { timingSafeEqual } from './crypto.js';
 import { handleCheckViews, handleDelete, handleListVideos, handleRenew } from './library.js';
 import { decodeUploadId, handleMetadata, handleMultipartAbort, handleMultipartComplete, handleMultipartPart, handleMultipartStart, handleUpload, handleUploadData, handleUploadThumbnail } from './uploads.js';
@@ -15,7 +16,17 @@ export async function handleRequest(request, env) {
     const url = new URL(request.url);
     const path = url.pathname;
 
+    const hosted = env.HOSTED_MODE === 'true';
+    if (hosted) {
+      if (!env.REQUEST_RATE_LIMIT || !env.ACCOUNT_RATE_LIMIT) return errorResponse('Hosted rate limits are not configured', 503);
+      const { success } = await env.REQUEST_RATE_LIMIT.limit({ key: request.headers.get('CF-Connecting-IP') || 'local' });
+      if (!success) return errorResponse('Too many requests. Try again in a minute.', 429);
+    }
     await ensureSchema(env);
+    // The shared-password dashboard and legacy comment accounts are self-host only.
+    if (hosted && (path.startsWith('/library') || path.startsWith('/auth/'))) {
+      return errorResponse('Not found', 404);
+    }
 
     if (path === '/auth/session' && request.method === 'GET') {
       const viewer = await commentViewer(request, env);
@@ -93,7 +104,20 @@ export async function handleRequest(request, env) {
         });
       }
 
-      if (!(await isAuthorized(request, env)) && !(await dashboardCookieAuthed(request, env))) {
+      let ownerId = null;
+      if (hosted) {
+        const user = await hostedUser(request, env);
+        if (!user) return errorResponse('Verified sign-in required', 401);
+        ownerId = user.id;
+        if (!(await env.ACCOUNT_RATE_LIMIT.limit({ key: ownerId })).success) return errorResponse('Too many account requests. Try again in a minute.', 429);
+        if (!['/api/health', '/api/videos', '/api/upload', '/api/check-views'].includes(path)) {
+          const route = path.match(/^\/api\/(upload-data|upload-thumbnail|upload-multipart|upload-part|upload-complete|upload-abort|metadata|renew|delete)\/([a-z0-9]+)(?:\/([^/]+)(?:\/(\d+))?)?$/);
+          if (!route) return errorResponse('Not found', 404);
+          const expected = { 'upload-data': 'PUT', 'upload-thumbnail': 'PUT', 'upload-part': 'PUT', delete: 'DELETE' }[route[1]] || 'POST';
+          if (request.method !== expected || (route[1] === 'upload-part' ? !route[4] : route[4] !== undefined) || (['upload-part', 'upload-complete', 'upload-abort'].includes(route[1]) ? !route[3] : route[3] !== undefined)) return errorResponse('Not found', 404);
+          return handleHostedRecording(request, env, ownerId, ...route.slice(1));
+        }
+      } else if (!(await isAuthorized(request, env)) && !(await dashboardCookieAuthed(request, env))) {
         return errorResponse('Unauthorized', 401);
       }
 
@@ -103,11 +127,11 @@ export async function handleRequest(request, env) {
       }
 
       if (path === '/api/videos' && request.method === 'GET') {
-        return handleListVideos(env);
+        return handleListVideos(env, ownerId);
       }
 
       if (path === '/api/upload' && request.method === 'POST') {
-        return handleUpload(request, env);
+        return handleUpload(request, env, ownerId);
       }
 
       const uploadDataMatch = path.match(/^\/api\/upload-data\/([a-z0-9]+)$/);
@@ -162,7 +186,7 @@ export async function handleRequest(request, env) {
       }
 
       if (path === '/api/check-views' && request.method === 'POST') {
-        return handleCheckViews(request, env);
+        return handleCheckViews(hosted ? new Request(request.url, { method: 'POST', body: JSON.stringify(await limitedJson(request, 16384)) }) : request, env, ownerId);
       }
 
       return errorResponse('Not found', 404);
@@ -177,6 +201,10 @@ export async function handleRequest(request, env) {
           'Access-Control-Allow-Headers': 'Content-Type',
         },
       });
+    }
+
+    if (hosted && request.method === 'POST') {
+      request = new Request(request, { body: JSON.stringify(await limitedJson(request, 16384)) });
     }
 
     // Password verification (public)
